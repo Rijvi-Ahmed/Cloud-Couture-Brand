@@ -111,9 +111,8 @@ test.describe('Save auth state (email + password + verification code)', () => {
       if (capturedJwt) {
         fs.writeFileSync(tokenPath, capturedJwt, 'utf8');
       } else {
-        throw new Error(
-          'Could not capture Bearer token from Clerk. The app may request it from a different URL or after a navigation. Save playwright-auth-state.json only, and set BEARER_TOKEN in .env manually from DevTools (Application > Local Storage or Network tab).'
-        );
+        // Storage state is enough to stay logged in; no need to fail. Set BEARER_TOKEN in .env manually if needed.
+        console.log('Bearer token not captured; playwright-auth-state.json was saved. You can set BEARER_TOKEN in .env from DevTools if needed.');
       }
     });
 

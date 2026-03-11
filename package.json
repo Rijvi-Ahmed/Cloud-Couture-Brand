@@ -3,10 +3,8 @@
   "version": "1.0.0",
   "description": "Playwright E2E tests for Cloud Couture",
   "scripts": {
-    "test": "playwright test",
-    "test:product-creation": "playwright test tests/productCreation.spec.ts --project=chromium",
-    "test:product-creation:debug": "playwright test tests/productCreation.spec.ts --headed --project=chromium --debug",
-    "test:save-auth": "playwright test tests/saveAuthState.spec.ts --project=save-auth --debug"
+    "test:product-creation:debug": "playwright test tests/productCreation.spec.ts --headed --project=chromium",
+    "test:save-auth": "playwright test tests/saveAuthState.spec.ts --project=save-auth --headed --project=chromium"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
