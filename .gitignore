@@ -1,8 +1,7 @@
 # Dependencies
 node_modules/
 
-# Environment (keep .env.example, ignore secrets)
-.env
+# Environment (optional: add .env to track; .env.local remains local)
 .env.local
 .env.*.local
 
