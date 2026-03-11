@@ -69,9 +69,10 @@ export class ProductCreationPage {
     await btn.click({ timeout: 30000 });
   }
 
-  /** Fill the 2FA verification code into "Enter verification code" field. */
+  /** Fill the 2FA verification code into "Enter verification code" field. Types slowly so the app can verify each digit. */
   async fillVerificationCode(code: string): Promise<void> {
-    await this.verificationCodeInput.fill(code);
+    await this.verificationCodeInput.clear();
+    await this.verificationCodeInput.pressSequentially(code, { delay: 200 });
   }
 
   /** Wait until landed on dashboard: /dashboard */
