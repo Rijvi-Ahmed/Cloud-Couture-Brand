@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Environment (keep .env.example, ignore secrets)
+.env
+.env.local
+.env.*.local
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+# Allure
+allure-results/
+allure-report/
+.allure/
+
+# Build / output
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
