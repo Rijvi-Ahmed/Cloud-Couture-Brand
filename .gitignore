@@ -4,6 +4,8 @@ node_modules/
 # Playwright
 test-results/
 playwright-report/
+playwright-auth-state.json
+.auth-token
 playwright/.cache/
 blob-report/
 

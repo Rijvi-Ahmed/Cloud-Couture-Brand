@@ -1,4 +1,17 @@
+import * as path from 'path';
 import { type Page } from '@playwright/test';
+
+const CLOTH_ADJECTIVES = ['Classic', 'Summer', 'Winter', 'Soft', 'Light', 'Premium', 'Vintage', 'Modern', 'Cozy', 'Elegant'];
+const CLOTH_FABRICS = ['Linen', 'Cotton', 'Wool', 'Silk', 'Denim', 'Knit', 'Jersey', 'Canvas', 'Velvet', 'Chiffon'];
+const CLOTH_ITEMS = ['Shirt', 'Dress', 'Jacket', 'Blouse', 'T-Shirt', 'Sweater', 'Coat', 'Skirt', 'Trousers', 'Hoodie'];
+
+function randomClothItemName(): string {
+  const adj = CLOTH_ADJECTIVES[Math.floor(Math.random() * CLOTH_ADJECTIVES.length)];
+  const fabric = CLOTH_FABRICS[Math.floor(Math.random() * CLOTH_FABRICS.length)];
+  const item = CLOTH_ITEMS[Math.floor(Math.random() * CLOTH_ITEMS.length)];
+  const suffix = Math.floor(1000 + Math.random() * 9000);
+  return `${adj} ${fabric} ${item} ${suffix}`;
+}
 
 export class ProductCreationPage {
   constructor(private readonly page: Page) {}
@@ -68,7 +81,7 @@ export class ProductCreationPage {
 
   /**
    * Complete 2FA: fill verification code and submit → dashboard.
-   * Set VERIFICATION_CODE in .env (paste the 6-digit code from your email before running).
+   * Uses VERIFICATION_CODE from .env or the code you pass.
    */
   async complete2FAAndWaitForDashboard(options?: {
     getCode?: () => Promise<string>;
@@ -80,10 +93,45 @@ export class ProductCreationPage {
       ? await options.getCode()
       : (options?.code ?? process.env.VERIFICATION_CODE?.trim());
     if (!code) {
-      throw new Error('Set VERIFICATION_CODE in .env to the 6-digit code from your email.');
+      throw new Error('Set VERIFICATION_CODE in .env (e.g. 424242 for Clerk dev) or pass code option.');
     }
 
     await this.fillVerificationCode(code);
+    await this.submitVerificationCode();
+    await this.waitForDashboard();
+  }
+
+  /** Click Continue after entering the verification code (if the button is present). */
+  async submitVerificationCode(): Promise<void> {
+    const continueBtn = this.page.getByRole('button', { name: 'Continue' });
+    if (await continueBtn.isVisible().catch(() => false)) {
+      await continueBtn.click();
+    }
+  }
+
+  /**
+   * Sign in with email + email code only (Clerk email_code flow).
+   * Equivalent to: signIn.create({ identifier: email }) → prepareFirstFactor(email_code) → attemptFirstFactor({ code }).
+   * Use code '424242' for Clerk dev magic code, or set VERIFICATION_CODE in .env.
+   */
+  async signInWithEmailCode(email: string, code: string): Promise<void> {
+    await this.gotoLoginPage();
+    await this.fillEmail(email);
+    await this.clickContinueAfterEmail();
+    // Wait for either factor-two (2FA) or the verification code input (email code as first factor)
+    await this.page.waitForURL(
+      url => url.hash.includes('factor-two') || url.pathname.includes('/dashboard'),
+      { timeout: 15000 }
+    ).catch(() => {});
+    // If we're on factor-two, send the email code (prepareFirstFactor)
+    const sendCodeBtn = this.page.getByRole('button', { name: /Email code to .+/i });
+    if (await sendCodeBtn.isVisible().catch(() => false)) {
+      await sendCodeBtn.click();
+    }
+    // Wait for "Enter verification code" field to be visible
+    await this.verificationCodeInput.waitFor({ state: 'visible', timeout: 15000 });
+    await this.fillVerificationCode(code);
+    await this.submitVerificationCode();
     await this.waitForDashboard();
   }
 
@@ -102,16 +150,24 @@ export class ProductCreationPage {
     await this.page.getByRole('menuitem', { name: 'Product' }).click();
   }
 
-  /** Fill Item name */
-  async fillItemName(itemName: string = 'Classic Linen Summer Shirt'): Promise<void> {
+  /** Fill Item name. Pass a name or leave empty to use a random cloth-related name. Returns the name used. */
+  async fillItemName(itemName?: string): Promise<string> {
+    const name = itemName ?? randomClothItemName();
     const input = this.page.getByRole('textbox', { name: 'Item name (Required)' });
     await input.click();
-    await input.fill(itemName);
+    await input.fill(name);
+    return name;
   }
 
   /** Verify Type is Product (disabled) */
   async verifyTypeIsProduct(): Promise<void> {
     await this.page.getByRole('combobox').filter({ hasText: /^Product$/ }).click();
+  }
+
+  /** Add product type: open product type dropdown and select option (e.g. Home) */
+  async addProductType(option: string = 'Apparel'): Promise<void> {
+    await this.page.getByRole('combobox').filter({ hasText: 'Select or add product type' }).click();
+    await this.page.getByRole('button', { name: option }).click();
   }
 
   /** Select or add product type from dropdown */
@@ -133,9 +189,15 @@ export class ProductCreationPage {
     await input.fill(tags);
   }
 
-  /** Upload image */
-  async uploadImage(filePath: string = 'bao-bao-GREEBEtyR9Y-unsplash.jpg'): Promise<void> {
-    await this.page.locator('div').filter({ hasText: 'Click to upload or drag and' }).nth(1).setInputFiles(filePath);
+  /** Upload image from Test Image folder (default) or given path. Clicks "Add photo" first, then sets file and Save & Upload. */
+  async uploadImage(filePath?: string): Promise<void> {
+    const defaultPath = path.join(process.cwd(), 'Test Image', 'bao-bao-GREEBEtyR9Y-unsplash.jpg');
+    const fullPath = filePath
+      ? path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath)
+      : defaultPath;
+    await this.page.locator("div[title='Add photo']").click();
+    const fileInput = this.page.locator('input[type=file]');
+    await fileInput.setInputFiles(fullPath);
     await this.page.getByRole('button', { name: 'Save & Upload' }).click();
   }
 
@@ -184,7 +246,6 @@ export class ProductCreationPage {
 
   /** Add colors */
   async addColors(colors: [string, string] = ['Black', 'white']): Promise<void> {
-    await this.page.getByRole('textbox', { name: 'Colors (Optional)' }).click();
     await this.page.getByRole('button', { name: 'Add more' }).click();
     await this.page.getByRole('textbox', { name: 'Enter option' }).click();
     await this.page.getByRole('textbox', { name: 'Enter option' }).fill(colors[0]);
@@ -286,5 +347,18 @@ export class ProductCreationPage {
   /** Click Save */
   async clickSave(): Promise<void> {
     await this.page.getByRole('button', { name: 'Save' }).click();
+  }
+
+  /**
+   * Get all item names from the listing table (Item Name column).
+   * Waits for the table to be visible. Returns array of strings.
+   */
+  async getListingItemNames(): Promise<string[]> {
+    const itemNameCells = this.page.locator(
+      'table tbody tr td:nth-child(2) p.font-medium'
+    );
+    await itemNameCells.first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+    const names = await itemNameCells.allTextContents();
+    return names.map(n => n.trim()).filter(Boolean);
   }
 }
