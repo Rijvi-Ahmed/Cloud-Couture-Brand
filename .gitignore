@@ -1,11 +1,6 @@
 # Dependencies
 node_modules/
 
-# Environment (keep .env.example, ignore secrets)
-.env
-.env.local
-.env.*.local
-
 # Playwright
 test-results/
 playwright-report/
